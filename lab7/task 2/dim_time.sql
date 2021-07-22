@@ -66,7 +66,7 @@ SELECT
         TO_CHAR( sd + rn, 'W' ), -- week_number
             ( CASE
                   WHEN TO_CHAR( sd + rn, 'D' ) IN ( 1, 2, 3, 4, 5, 6 ) THEN
-                    NEXT_DAY( sd + rn, '—”¡¡Œ“¿' )
+                    NEXT_DAY( sd + rn, '–°–£–ë–ë–û–¢–ê' )
                   ELSE
                     ( sd + rn )
                 END ), -- week_end_date
