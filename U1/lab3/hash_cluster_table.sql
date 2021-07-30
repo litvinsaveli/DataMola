@@ -1,11 +1,13 @@
 -- step 1
 drop cluster emp_dept_cluster;
+drop table emp_hash;
+drop table dept_hash;
+
 
 
 CREATE cluster emp_dept_cluster(deptno NUMBER(2))
-size 1024
-HASH IS deptno
-hashkeys 75000;
+size 8192
+hashkeys 1000;
 
 -- step 2
 
@@ -48,4 +50,5 @@ SELECT *
       )
   )
 ORDER BY deptno;
+
 
