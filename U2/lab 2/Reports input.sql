@@ -82,7 +82,7 @@ BEGIN
 END;
 
 
-drop table products;
+drop table products cascade constraints;
 
 create table products
 (
@@ -91,7 +91,7 @@ create table products
     specs        varchar(20)  not null,
     color        varchar(20)  not null,
     price        number(10)   not null,
-    product_desc varchar(200) not null,
+    product_desc varchar(200) null,
     insert_dt    date         not null,
 
     constraint pk_product_id primary key (product_id)
@@ -140,8 +140,6 @@ where model in ('X', 'S', 'Y', '3');
 
 commit;
 
-select *
-from products;
 -- customers recreated using sql expressions
 
 create or replace function get_country return varchar
@@ -216,31 +214,36 @@ from U_DW_REFERENCES.VL_COUNTRIES;
 commit;
 
 -- periods
+truncate table PERIODS;
 drop table Periods;
 create table Periods
 (
     PERIOD_NAME VARCHAR2(20),
+    YEAR        NUMBER,
+    MONTH       VARCHAR(20),
     START_DT    DATE,
     END_DT      DATE,
     INSERT_DT   DATE
 ) tablespace ts_periods_layouts_01;
 
-insert into Periods (START_DT, END_DT, INSERT_DT)
-select stdate + 30 + rn,
-       stdate + 60 + rn,
+insert into Periods (YEAR, MONTH, START_DT, END_DT, INSERT_DT);
+select TO_CHAR(stdate + rn, 'YYYY'),
+       TO_CHAR(stdate + rn, 'MM'),
+       to_number(to_char(stdate, 'MM')) + rn,
+       last_day(stdate + rn),
        to_date(to_char(sysdate, 'YYYY-MM-DD'), 'YYYY-MM-DD')
 
-FROM (select to_date('2015-07-13', 'YYYY-MM-DD') stdate,
-             ROWNUM                              rn
+FROM (select to_date('2015-07-13', 'YYYY-MM-DD') stdate, rownum rn
       from dual
-      connect by level <= 1000);
+      connect by level <= 10000);
 commit;
-
+select *
+from sa_layer.PERIODS;
 
 update periods
-set PERIOD_NAME = 'Third'
-where to_number(to_char(start_dt, 'MM')) > 6
-  and to_number(to_char(start_dt, 'MM')) <= 9;
+set PERIOD_NAME = 'First'
+where to_number(to_char(start_dt, 'MM')) <= 3;
+and to_number(to_char(start_dt, 'MM')) > 3;
 commit;
 
 -------------------
