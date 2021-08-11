@@ -1,53 +1,59 @@
-create or replace package body pkg_etl_dim_geo_dw
+CREATE OR REPLACE PACKAGE BODY PKG_ETL_DIM_GEO_DW
 AS
-    procedure load_dim_geo
+    PROCEDURE load_dim_geo
     AS
     BEGIN
-        EXECUTE IMMEDIATE 'TRUNCATE TABLE DW_DATA.DW_GEO_LOCATIONS';
+        EXECUTE IMMEDIATE 'TRUNCATE TABLE dw_data.dw_geo_locations';
         DECLARE
+            TYPE geocursor IS ref cursor;
 
-            type GeoCursor is ref cursor;
+            TYPE geoidarray IS table of dw_data.dw_geo_locations.geo_id%type;
+            TYPE cidarray IS table of dw_data.dw_geo_locations.country_id%type;
+            TYPE cnamearray IS table of dw_data.dw_geo_locations.country_name%type;
+            TYPE ccodea2array IS table of dw_data.dw_geo_locations.country_code_a2%type;
+            TYPE ccodea3array IS table of dw_data.dw_geo_locations.country_code_a3%type;
+            TYPE ridarray IS table of dw_data.dw_geo_locations.region_id%type;
+            TYPE rcodearray IS table of dw_data.dw_geo_locations.region_code%type;
+            TYPE rnamearray IS table of dw_data.dw_geo_locations.region_name%type;
+            TYPE ins_dtarray IS table of dw_data.dw_geo_locations.insert_dt%type;
 
-            type geoIDArray is table of DW_DATA.DW_GEO_LOCATIONS.GEO_ID%type;
-            type cIdArray is table of DW_DATA.DW_GEO_LOCATIONS.COUNTRY_ID%type;
-            type cNameArray is table of DW_DATA.DW_GEO_LOCATIONS.COUNTRY_NAME%type;
-            type cCodeA2Array is table of DW_DATA.DW_GEO_LOCATIONS.COUNTRY_CODE_A2%type;
-            type cCodeA3Array is table of DW_DATA.DW_GEO_LOCATIONS.COUNTRY_CODE_A3%type;
-            type rIdArray is table of DW_DATA.DW_GEO_LOCATIONS.REGION_ID%type;
-            type rCodeArray is table of DW_DATA.DW_GEO_LOCATIONS.REGION_CODE%type;
-            type rNameArray is table of DW_DATA.DW_GEO_LOCATIONS.REGION_NAME%type;
-            type ins_dtArray is table of DW_DATA.DW_GEO_LOCATIONS.INSERT_DT%type;
-
-
-            cur GeoCursor;
-            geoID geoIDArray;
-            countryID cIdArray;
-            countryName cNameArray;
-            countryCodeA2 cCodeA2Array;
-            countryCodeA3 cCodeA3Array;
-            regID rIdArray;
-            regCode rCodeArray;
-            regName rNameArray;
-            insDT ins_dtArray;
+            cur           geocursor;
+            geoID         geoidarray;
+            countryID     cidarray;
+            countryName   cnamearray;
+            countryCodeA2 ccodea2array;
+            countryCodeA3 ccodea3array;
+            regID         ridarray;
+            regCode       rcodearray;
+            regName       rnamearray;
+            insDT         ins_dtarray;
 
         BEGIN
 
-            open cur for select GEO_ID, COUNTRY_ID, COUNTRY_NAME, COUNTRY_CODE_A2, COUNTRY_CODE_A3,
-                                REGION_ID, REGIO_CODE, REGION_NAME, INSERT_DT
-                        from sa_reports.GEO_LOCATIONS;
-            loop
-                fetch cur
-                    bulk collect into geoID,countryID,countryName, countryCodeA2, countryCodeA3, regID, regCode, regName, insDT;
+            OPEN cur FOR SELECT geo_id,
+                                country_id,
+                                country_name,
+                                country_code_a2,
+                                country_code_a3,
+                                region_id,
+                                regio_code,
+                                region_name,
+                                insert_dt
+                         FROM sa_reports.geo_locations;
+            LOOP
+                FETCH cur
+                    BULK COLLECT INTO geoID,countryID,countryName, countryCodeA2, countryCodeA3, regID, regCode, regName, insDT;
 
-
-                    forall i in 1 .. geoID.count
-                    insert into DW_DATA.DW_GEO_LOCATIONS (GEO_ID, COUNTRY_ID, COUNTRY_NAME, COUNTRY_CODE_A2, COUNTRY_CODE_A3, REGION_ID, REGION_CODE, REGION_NAME, INSERT_DT, UPDATE_DT)
+                FORALL i IN 1 .. geoID.COUNT
+                    INSERT INTO dw_data.dw_geo_locations (geo_id, country_id, country_name, country_code_a2,
+                                                          country_code_a3, region_id, region_code, region_name,
+                                                          insert_dt, update_dt)
                     VALUES (geoID(i), countryID(i), countryName(i), countryCodeA2(i), countryCodeA3(i),
-                    regID(i), regCode(i), regName(i), insDT(i), (select sysdate from dual));
-                    commit;
-                exit when cur%notfound;
-            end loop;
-        close cur;
-        end;
-    end;
-end;
+                            regID(i), regCode(i), regName(i), insDT(i), (SELECT SYSDATE FROM dual));
+                COMMIT;
+                EXIT WHEN cur%NOTFOUND;
+            END LOOP;
+            CLOSE cur;
+        END;
+    END;
+END;

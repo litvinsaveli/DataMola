@@ -1,59 +1,67 @@
-drop table dw_sales_fct;
-create table dw_sales_fct
+DROP TABLE dw_sales_fct CASCADE CONSTRAINTS;
+CREATE TABLE dw_sales_fct
 (
-    sale_id     number(22) not null
-        constraint pk_sale_id primary key,
-    event_dt    date
-        constraint fk_time_id references dw_time
-            on delete cascade,
+    sale_id     number(22) NOT NULL
+        CONSTRAINT pk_sale_id PRIMARY KEY,
+    event_dt    varchar(10),
+
     customer_id number(22)
-        constraint fk_customer_surr_id
-            references dw_customers_scd
-                on delete cascade,
+        CONSTRAINT fk_customer_surr_id
+            REFERENCES dw_customers_scd
+                ON DELETE CASCADE,
 
     dealer_id   number(22)
-        constraint fk_dealer_id
-            references DW_DEALERS
-                on delete cascade,
+        CONSTRAINT fk_dealer_id
+            REFERENCES dw_dealers
+                ON DELETE CASCADE,
     geo_id      number(22)
-        constraint fk_geo_id
-            references DW_GEO_LOCATIONS
-                on delete cascade,
+        CONSTRAINT fk_geo_id
+            REFERENCES dw_geo_locations
+                ON DELETE CASCADE,
     product_id  number(22)
-        constraint fk_product_id
-            references DW_PRODUCTS
-                on delete cascade,
+        CONSTRAINT fk_product_id
+            REFERENCES dw_products
+                ON DELETE CASCADE,
+    time_id     date
+        CONSTRAINT fk_time_id
+            REFERENCES dw_time
+                ON DELETE CASCADE,
     period_id   number(22)
-        constraint fk_period_id references DW_GEN_PERIODS
-            on delete cascade,
+        CONSTRAINT fk_period_id REFERENCES dw_gen_periods
+            ON DELETE CASCADE,
     TOTAL_AMNT  float,
     MAD         float
-) tablespace TS_DW_LAYER_DATA_01;
+) TABLESPACE ts_dw_layer_data_01;
 
-insert into DW_SALES_FCT (SALE_ID, EVENT_DT, CUSTOMER_ID, DEALER_ID, GEO_ID, PRODUCT_ID, PERIOD_ID, TOTAL_AMNT)
-select /*+parallel (8) */
-    rownum,
-    t.TIME_ID,
-    c.customer_id,
+INSERT INTO dw_sales_fct (sale_id, event_dt, customer_id, dealer_id, geo_id, product_id, period_id, TOTAL_AMNT)
+SELECT /*+parallel (8) */
+    ROWNUM,
+    t.time_id,
+    c.customer_surr_id,
     d.dealer_id,
     g.geo_id,
     p.product_id,
     pr.period_id,
-    c.COUNT * p.PRICE
-from DW_CUSTOMERS_SCD c
-         left join DW_DEALERS d on (c.COUNTRY = d.COUNTRY)
-         left join DW_GEO_LOCATIONS g on (d.COUNTRY = g.COUNTRY_NAME)
-         left join DW_PRODUCTS p on (c.PRODUCT_ID = p.PRODUCT_ID)
-         left join DW_TIME t on (c.VALID_FROM = t.TIME_ID)
-         left join DW_GEN_PERIODS pr on (c.VALID_FROM >= pr.START_DT and c.VALID_FROM <= pr.end_dt)
+    c.count * p.price
+FROM dw_customers_scd               c
+         LEFT JOIN dw_dealers       d
+                   ON (c.country = d.country)
+         LEFT JOIN dw_geo_locations g
+                   ON (d.country = g.country_name)
+         LEFT JOIN dw_products      p
+                   ON (c.product_id = p.product_id)
+         LEFT JOIN dw_time          t
+                   ON (c.valid_from = t.time_id)
+         LEFT JOIN dw_gen_periods   pr
+                   ON (c.valid_from >= pr.start_dt AND c.valid_from <= pr.end_dt)
 ;
 
-commit;
+COMMIT;
 
 
 
-drop table monthly_report;
-create table monthly_report
+DROP TABLE monthly_report;
+CREATE TABLE monthly_report
 (
     dealer       varchar(20),
     country      varchar(80),
@@ -62,35 +70,37 @@ create table monthly_report
     count        number(10),
     total_amount number(22)
 
-) tablespace TS_DW_LAYER_DATA_01;
+) TABLESPACE ts_dw_layer_data_01;
 
-insert into monthly_report (dealer, country, year, month, count, total_amount)
+INSERT INTO monthly_report (dealer, country, year, month, count, total_amount)
 
-SELECT 'dealer ' || d.dealer_id as dealer,
-       d.COUNTRY                as country,
-       t.year_calendar          as year,
-       t.month_number           as month,
-       sum(c.count)             as count,
-       sum(p.price * c.count)   as total_amount
-from DW_DEALERS d
-         left join DW_CUSTOMERS_SCD c on (d.COUNTRY = c.COUNTRY)
-         left join dw_products p on (c.PRODUCT_ID = p.product_id)
-         left join dw_time t on (c.VALID_FROM = t.TIME_ID)
-group by d.DEALER_ID, YEAR_CALENDAR, MONTH_NUMBER, d.country
-order by DEALER_ID, YEAR_CALENDAR, MONTH_NUMBER;
-
+SELECT 'dealer ' || d.dealer_id AS dealer,
+       d.country                AS country,
+       t.year_calendar          AS year,
+       t.month_number           AS month,
+       SUM(c.count)             AS count,
+       SUM(p.price * c.count)   AS total_amount
+FROM dw_dealers                     d
+         LEFT JOIN dw_customers_scd c
+                   ON (d.country = c.country)
+         LEFT JOIN dw_products      p
+                   ON (c.product_id = p.product_id)
+         LEFT JOIN dw_time          t
+                   ON (c.valid_from = t.time_id)
+GROUP BY d.dealer_id, year_calendar, month_number, d.country
+ORDER BY dealer_id, year_calendar, month_number;
 
 -- adhocing
 
-select dealer, country, year, month, count, total_amount, mad
-from monthly_report
-where country = 'Belarus'
-    model
-        partition by (dealer, country)
-        dimension by (year, month)
-        measures (total_amount,count, 0 mad)
-        rules (
-        mad[year, month] = round((total_amount[cv(year), cv(month)] - (avg(total_amount)[cv(year), month])) /
-                                 total_amount[cv(year), cv(month)], 7)
+SELECT dealer, country, year, month, count, total_amount, mad
+FROM monthly_report
+WHERE country = 'Belarus'
+    MODEL
+        PARTITION BY (dealer, country)
+        DIMENSION BY (year, month)
+        MEASURES (total_amount,count, 0 mad)
+        RULES (
+        mad[year, month] = ROUND((total_amount[CV(year), CV(month)] - (AVG(total_amount)[cv(YEAR), MONTH])) /
+                                 total_amount[CV(year), CV(month)], 7)
         )
-order by dealer, year, month;
+ORDER BY dealer, year, month;
