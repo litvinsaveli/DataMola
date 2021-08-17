@@ -138,7 +138,7 @@ AS
     PROCEDURE load_fct
     AS
     BEGIN
-        EXECUTE IMMEDIATE 'TRUNCATE TABLE sal_data.sales_fct';
+        EXECUTE IMMEDIATE 'TRUNCATE TABLE sal_cl.cls_fact';
         DECLARE
             TYPE bigcursor IS ref cursor;
 
